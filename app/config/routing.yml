@@ -1,5 +1,0 @@
-r3_gis_real_time_bus:
-    resource: "@R3GisRealTimeBusBundle/Controller/"
-    type:     annotation
-    prefix:   /
-
