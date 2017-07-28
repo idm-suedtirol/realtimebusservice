@@ -1,60 +1,43 @@
-Getting started with the Realtime Bus Data Server
-=================================================
+## SASA SpA-AG Realtime Server
 
-Welcome to the Realtime Bus Data Server
+RealtimeServer is the backend code of [http://realtime.opensasa.info](http://realtime.opensasa.info). 
+It provides real time positions of the public transport vehicles managed by SASA SpA-AG in South Tyrol. 
 
-1) Requirements
-----------------------------------
+<br>
 
-The application is developed on Linux. For any other OS, your mileage may vary.
+### Architecture
 
-You'll need at least 4GB RAM.
+The Server is written in [NodeJs](https://nodejs.org/) and is backed by a [PostgreSQL](https://www.postgresql.org) database.
+The RESTful interface is done using [Express.js](https://expressjs.com)
 
-PostgreSQL database (tested with >= 9.1). Connection pooling is definitely a plus. 
-PostGIS (tested with >= 1.5)
-PHP (required >= 5.3). A code cache, as APC or the Optimzer Plus, coming with PHP 5.5 makes sense.
-MapServer (>= 5.6) together with PHP MapScript are needed.
-A web server, able to run PHP is needed. 
+It uses Open Data provided by SASA. The documentation about it can be found [here](http://opensasa.info)
 
+### Install
 
-2) Setting up the data base 
--------------------------------------
+If you want to install this project, please refer to our [installation instructions](INSTALL.md)
 
-A PostGIS database must be initialized. Details on this can be found in the official PostGIS documentation, [1] 
-The database schema can be found in `dataserver/SQL/realtimebus-schema.sql`.
-If you have any detailed geometry for you bus route segments, defined as the exact geometry for going from a bus
-stop to the next one, insert these into the table ort_edges.  
+### Built With
 
-3) Install the Symfony modules
---------------------------------
+- [NodeJs](https://nodejs.org/) - The web framework used
+- [Express.js](https://expressjs.com) - RESTful interface
+- [PostgreSQL](https://www.postgresql.org) - Database
+- [PostGIS](http://postgis.net) - Spatial database extender for PostgreSQL
 
-The Symfony environment can be initialized with
+### Contributing
 
-```
-cd dataserver/
-php composer.phar install
-```
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct, and the process for submitting pull requests to us.
 
-Further details can be found in [2] and [3]. 
+### Versioning
 
-Add the project specific parameters from `dataserver/app/config/parameters.yml.sample` to 
-`dataserver/app/config/parameters.yml.sample`, as created by the Symfony installation process.
+We use [SemVer](http://semver.org) for versioning. For the versions available, see the tags on this repository.
 
-Set up the web server and test you installation, using the standards API. 
+### Team Members
 
-4) Import the VDV data
-----------------------
+- "Markus Windegger" - <windegger@sasabz.it>
+- "Patrick Bertolla" - <patrick.bertolla@idm-suedtirol.com>
+- "David Dejori" - <dejoridavid@gmail.com>
+- "Alex Lardschneider" - <alex.lardschneider@gmail.com>
 
-VDV data can be imported with
+### License
 
-```
-php app/console vdv:import_data DIRECTORY_WITH_VDV_DATA
-```
-Once the VDV time table has been imported, data can be sent to http://MY_HOST/receiver by POSTing the appropriate JSON
-datagram.
-
-Enjoy!
-
-[1]:  http://postgis.net/documentation
-[2]:  http://symfony.com/doc/2.3/book/installation.html
-[3]:  http://getcomposer.org/
+This project is licensed under the Apache 2.0 License - see the [LICENSE.md](LICENSE.md) file for details.
