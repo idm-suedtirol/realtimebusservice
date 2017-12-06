@@ -50,15 +50,14 @@ const DB_PARAMS = {
     ort_ref_ort: "next_rec_ort.ort_ref_ort",
     ort_ref_ort_kuerzel: "next_rec_ort.ort_ref_ort_kuerzel",
     ort_ref_ort_name: "next_rec_ort.ort_ref_ort_name",
-    str_li_var: "rec_frt.variant"
+    str_li_var: "rec_frt.variant",
+    teq: "teq"
 };
-
-let includeHexColor2 = false;
 
 module.exports = class Positions {
 
     constructor(outputFormat) {
-        this.outputFormat = outputFormat || config.coordinate_wgs84;
+        this.outputFormat = outputFormat || config.coordinate_etrs89;
     }
 
     setLines(lines) {
@@ -71,6 +70,7 @@ module.exports = class Positions {
                 let sqlFilter = '';
 
                 Object.keys(urlParams).sort().forEach(function (jsonParam) {
+                    // noinspection EqualityComparisonWithCoercionJS
                     if (DB_PARAMS[jsonParam] == null || jsonParam.slice(-3) === "_op") {
                         return;
                     }
@@ -80,6 +80,7 @@ module.exports = class Positions {
                     let opField = urlParams[jsonParam + "_op"];
                     let op = OPERATORS[opField];
 
+                    // noinspection EqualityComparisonWithCoercionJS
                     if (opField == null && op == null) {
                         sqlFilter += ` AND ${DB_PARAMS[jsonParam]} IN (${urlValue.split(',').map(function (value) {
                             return `'${value}'`;
@@ -93,7 +94,9 @@ module.exports = class Positions {
                     }
                 });
 
-                logger.info("SQL filter:" + sqlFilter);
+                if (sqlFilter.length !== 0) {
+                    logger.info("SQL filter:" + sqlFilter);
+                }
 
                 let lineFilter = '';
 
@@ -104,9 +107,12 @@ module.exports = class Positions {
 
                 let select = '';
                 let groupBy = '';
+
+                // noinspection EqualityComparisonWithCoercionJS
                 let params = urlParams[PROPERTIES] == null ? null : urlParams[PROPERTIES].split(',');
 
                 Object.keys(DB_PARAMS).sort().forEach(function (key) {
+                    // noinspection EqualityComparisonWithCoercionJS
                     if (params == null || params.indexOf(key) > -1) {
                         select += `${DB_PARAMS[key]} AS ${key}, `;
 
@@ -188,8 +194,12 @@ module.exports = class Positions {
                     let geometry = row.json_extrapolation_geom != null ? JSON.parse(row.json_extrapolation_geom) : JSON.parse(row.json_geom);
                     let hex = ((1 << 24) + (row.li_r << 16) + (row.li_g << 8) + row.li_b).toString(16).slice(1);
 
-                    if (row.hexcolor2 == "hexcolor2") {
+                    if (row.hexcolor2 === "hexcolor2") {
                         row.hexcolor2 = hex.toUpperCase();
+                    }
+
+                    if (row.teq !== undefined) {
+                        row.teq = parseInt(row.teq);
                     }
 
                     delete row.json_geom;

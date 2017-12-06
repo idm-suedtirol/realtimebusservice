@@ -5,6 +5,9 @@ const logger = require('../../util/logger');
 const config = require("../../config");
 const utils = require("../../util/utils");
 
+const moment = require("moment");
+require("moment-timezone");
+
 const FeatureList = require("../../model/realtime/FeatureList");
 
 const PositionLineReference = require("../../model/receiver/PositionLineReference");
@@ -29,16 +32,31 @@ module.exports.updatePositions = function (req, res) {
 
                     if (!feature.hasOwnProperty("properties")) {
                         logger.error("Required property 'properties' is missing");
+                        logger.error(`Feature: '${JSON.stringify(feature)}'`);
+
                         continue;
                     }
 
                     if (!feature.properties.hasOwnProperty("frt_fid")) {
                         logger.error("Required property 'frt_fid' is missing");
+                        logger.error(`Feature: '${JSON.stringify(feature)}'`);
+
                         continue;
                     }
 
-                    if (feature.properties.frt_fid === 0) {
-                        logger.error("Required property 'frt_fid' is 0");
+                    if (feature.properties.frt_fid <= 0) {
+                        logger.error("Required property 'frt_fid' is not greater than 0");
+                        logger.error(`Feature: '${JSON.stringify(feature)}'`);
+
+                        continue;
+                    }
+
+                    if (moment(feature.properties.gps_date)
+                            .isAfter(moment(feature.properties.notification_date).add(config.realtime_bus_timeout_minutes, "minutes"))) {
+
+                        logger.error("Feature has timed out");
+                        logger.error(`Feature: '${JSON.stringify(feature)}'`);
+
                         continue;
                     }
 
@@ -72,18 +90,23 @@ module.exports.updatePositions = function (req, res) {
                 })
             })
                 .then(() => {
-                    client.release();
                     res.status(200).jsonp({success: true});
+
+                    client.release();
                 })
                 .catch(error => {
                     client.release();
 
                     logger.error(error);
+
                     utils.respondWithError(res, error);
+                    utils.handleError(error)
                 })
         })
         .catch(error => {
             logger.error(`Error acquiring client: ${error}`);
+
             utils.respondWithError(res, error);
+            utils.handleError(error)
         })
 };

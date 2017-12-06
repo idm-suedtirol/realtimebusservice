@@ -1,14 +1,13 @@
 'use strict';
 
+const http = require("http");
+
 const raven = require('raven');
-const crypto = require('crypto');
-const jwt = require('jsonwebtoken');
-const fs = require("fs");
 
 const logger = require('./logger');
 const config = require('../config');
 
-const enableErrorReporting = process.env.ERROR_REPORTING || false;
+const HttpError = require("./HttpError");
 
 if (!('toJSON' in Error.prototype)) {
     Object.defineProperty(Error.prototype, 'toJSON', {
@@ -25,6 +24,12 @@ if (!('toJSON' in Error.prototype)) {
         writable: true
     });
 }
+
+Array.prototype.clear = function () {
+    while (this.length) {
+        this.pop();
+    }
+};
 
 
 module.exports.pointFromGeoArray = function (jsonArray) {
@@ -60,56 +65,27 @@ module.exports.getZoneForLine = function (line) {
     ].includes(line) ? 'BZ' : 'ME'
 };
 
-module.exports.randomHex = function rand_string(n) {
-    if (n <= 0) {
-        return '';
-    }
+module.exports.getWebContent = function (host, path, cb) {
+    logger.warn(`GET: ${host}${path}`);
 
-    let rs = '';
-    try {
-        rs = crypto.randomBytes(Math.ceil(n / 2)).toString('hex').slice(0, n);
-    } catch (ex) {
-        console.error('Exception generating random string: ' + ex);
-        rs = '';
+    let options = {
+        host: host,
+        port: 80,
+        path: path
+    };
 
-        let r = n % 8, q = (n - r) / 8, i;
-        for (i = 0; i < q; i++) {
-            rs += Math.random().toString(16).slice(2);
-        }
-        if (r > 0) {
-            rs += Math.random().toString(16).slice(2, i);
-        }
-    }
-    return rs;
-};
+    http.get(options, function (res) {
+        let data = "";
 
-module.exports.random = function (low, high) {
-    return Math.random() * (high - low) + low;
-};
+        res.on("data", function (chunk) {
+            data += chunk;
+        });
 
-module.exports.generateProfileId = function () {
-    let token = "";
-    let codeAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    codeAlphabet += "abcdefghijklmnopqrstuvwxyz";
-    codeAlphabet += "0123456789";
-
-    let max = codeAlphabet.length;
-
-    for (let i = 0; i < 32; i++) {
-        token += codeAlphabet.charAt([random(0, max)]);
-    }
-
-    return token;
-};
-
-module.exports.generateEcoPointsJwt = function (user) {
-    // noinspection EqualityComparisonWithCoercionJS
-    if (user == null) {
-        return null;
-    }
-
-    let cert = fs.readFileSync('static/private.key');
-    return jwt.sign({sub: user.id}, cert, {algorithm: 'RS256'});
+        res.on("end", function () {
+            console.log(data);
+            cb(data);
+        });
+    });
 };
 
 
@@ -125,10 +101,11 @@ module.exports.getLanguage = function (req) {
     return lang;
 };
 
+
 // ==================================================== ERRORS =========================================================
 
 module.exports.startErrorReporting = function () {
-    if (!enableErrorReporting) {
+    if (!config.enable_error_reporting) {
         logger.warn("Raven error reporting is disabled");
         return
     }
@@ -143,7 +120,7 @@ module.exports.startErrorReporting = function () {
 };
 
 module.exports.handleError = function (error) {
-    if (!enableErrorReporting) {
+    if (!config.enable_error_reporting) {
         return;
     }
 
@@ -151,14 +128,60 @@ module.exports.handleError = function (error) {
 };
 
 module.exports.respondWithError = function (res, error) {
+    if (error instanceof HttpError) {
+        res.status(error.status).jsonp({success: false, error: error});
+
+        if (error.message.startsWith("Parameter '")) {
+            return;
+        }
+
+        exports.handleError(error);
+
+        return;
+    }
+
+    exports.handleError(error);
+
     res.status(500).jsonp({success: false, error: error})
+};
+
+
+// ================================================== PARAMETERS =======================================================
+
+module.exports.checkForParam = function (res, value, name) {
+    if (exports.isEmpty(value)) {
+        exports.respondWithError(res, new HttpError(`Required param '${name}' is missing`));
+        return false;
+    }
+
+    return true;
+};
+
+module.exports.checkForParamThrows = function (value, name) {
+    if (exports.isEmpty(value)) {
+        throw new HttpError(`Required param '${name}' is missing`);
+    }
+};
+
+module.exports.checkIfParamIsNumber = function (res, value, name) {
+    if (!exports.isNumber(value)) {
+        exports.respondWithError(res, new HttpError(`Parameter '${name}' must be of type 'number', was '${value}'`));
+        return false;
+    }
+
+    return true;
+};
+
+module.exports.throwTypeError = function (name, type, value) {
+    throw(`Parameter '${name}' must be of type '${type}', was '${value}'`)
 };
 
 
 // ================================================ TYPE VALIDATION ====================================================
 
-module.exports.isNumber = function (toTest) {
-    return !isNaN(parseFloat(toTest)) && isFinite(toTest);
+module.exports.isEmpty = function (field) {
+    // noinspection EqualityComparisonWithCoercionJS
+    return field == null;
 };
 
 module.exports.isEmptyArray = function (array) {
@@ -166,11 +189,20 @@ module.exports.isEmptyArray = function (array) {
     return array == null || array.length === 0
 };
 
-module.exports.isEmpty = function (field) {
-    // noinspection EqualityComparisonWithCoercionJS
-    return typeof field == null
+module.exports.isEmptyString = function (field) {
+    if (typeof field !== 'string') {
+        return true;
+    }
+
+    return field.length === 0
 };
 
-module.exports.throwTypeError = function (name, type, value) {
-    throw(`Parameter '${name}' must be of type '${type}', was '${value}'`)
+
+module.exports.isNumber = function (toTest) {
+    return !isNaN(parseFloat(toTest)) && isFinite(toTest);
+};
+
+module.exports.isArray = function (array) {
+    // noinspection EqualityComparisonWithCoercionJS
+    return array != null && Array.isArray(array)
 };
