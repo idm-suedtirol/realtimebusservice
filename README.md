@@ -1,3 +1,7 @@
+## DEPPRECATED!!!
+
+This repository contains deprecated source code, which is not in use anymore.
+
 ## SASA SpA-AG real-time server
 
 This is the backend code of [http://realtimetest.opensasa.info](http://realtimetest.opensasa.info). 
